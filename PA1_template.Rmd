@@ -1,20 +1,114 @@
 # Reproducible Research: Peer Assessment 1
 
+library(ggplot2)
 
 ## Loading and preprocessing the data
-
+dat<-read.csv("C:/Users/mcfate/Desktop/Coursera/John Hopkins Data Series/5. Reproducible Research/assignment/repdata-data-activity/activity.csv")
 
 
 ## What is mean total number of steps taken per day?
-
+p1 <- ggplot(dat,aes(date,steps))
+p1+geom_bar(stat="identity")
+meanstep<-mean(tapply(dat$steps,dat$date,sum),na.rm=TRUE)
+print(meanstep)
+medianstep<-median(tapply(dat$steps,dat$date,sum),na.rm=TRUE)
+print(medianstep)
 
 
 ## What is the average daily activity pattern?
-
+meanstep<-tapply(dat$steps,dat$interval,mean,na.rm=TRUE)
+s <- data.frame(meanstep,unique(dat$interval))
+colnames(s) <- c("meansteps","interval")
+p2<-ggplot(s,aes(interval,meansteps))
+p2+geom_line()
+ 
+maxinterval <- s[which.max(s[,1]),2]
+print(maxinterval)
 
 
 ## Imputing missing values
+com <- complete.cases(dat)
+length(com[com==FALSE])
+## Devise strategy to imputing NAs,(imput meansteps into NA)
+incom <- dat[is.na(dat$steps),]
+for (i in 1:nrow(incom)){
+         incom$steps[i]=s[s$interval==incom$interval[i],1]}
+complete <- na.omit(dat)
+dat.new <- rbind(incom,complete)
+dat.new<-dat.new[order(dat.new$date,dat.new$interval),]
+p3 <- ggplot(dat.new,aes(date,steps))
+p3 + geom_bar(stat="identity")
+
+meanstep.new<-mean(tapply(dat.new$steps,dat.new$date,sum))
+print(meanstep.new)
+medianstep.new<-median(tapply(dat.new$steps,dat.new$date,sum))
+print(medianstep.new)
 
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+day<-weekdays(as.Date(dat.new$date))
+dat.new2<-cbind(dat.new,day)
+weekend<-dat.new2[dat.new2$day==c("Sunday","Saturday"),]
+weekday<-dat.new2[dat.new2$day!=c("Sunday","Saturday"),]
+weekend<-cbind(weekend,week=rep("weekend",nrow(weekend)))
+weekday<-cbind(weekday,week=rep("weekday",nrow(weekday)))
+
+weekendstep <- tapply(weekend$steps,weekend$interval,mean)
+s.end <- data.frame(weekendstep,unique(dat$interval))
+colnames(s.end)<-c("weekendmeansteps","interval")
+
+weekdaystep <- tapply(weekday$steps,weekday$interval,mean)
+s.day <- data.frame(weekdaystep,unique(dat$interval))
+colnames(s.day)<-c("weekdaymeansteps","interval")
+
+p4<-ggplot(s.end,aes(interval,weekendstep))+geom_line()+ggtitle("weekend")
+p5<-ggplot(s.day,aes(interval,weekdaystep))+geom_line()+ggtitle("weekday")
+
+# Multiple plot function
+#
+# ggplot objects can be passed in ..., or to plotlist (as a list of ggplot objects)
+# - cols:   Number of columns in layout
+# - layout: A matrix specifying the layout. If present, 'cols' is ignored.
+#
+# If the layout is something like matrix(c(1,2,3,3), nrow=2, byrow=TRUE),
+# then plot 1 will go in the upper left, 2 will go in the upper right, and
+# 3 will go all the way across the bottom.
+#
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  require(grid)
+
+  # Make a list from the ... arguments and plotlist
+  plots <- c(list(...), plotlist)
+
+  numPlots = length(plots)
+
+  # If layout is NULL, then use 'cols' to determine layout
+  if (is.null(layout)) {
+    # Make the panel
+    # ncol: Number of columns of plots
+    # nrow: Number of rows needed, calculated from # of cols
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                    ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+
+ if (numPlots==1) {
+    print(plots[[1]])
+
+  } else {
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+      # Get the i,j matrix positions of the regions that contain this subplot
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
+
+multiplot(p4,p5)
